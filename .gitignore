@@ -1,0 +1,59 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Environment
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Datasets and large generic files (DO NOT COMMIT RAW DATA)
+raw datasets/
+processed_data/
+pwl_sources/
+*.zip
+*.tar.gz
+*.csv
+
+# SPICE / LTSpice outputs and temporary files
+*.raw
+*.log
+*.op.raw
+*.fft
+*.fft.log
+*.txt
+*.plt
+*.net
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
