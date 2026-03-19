@@ -57,3 +57,5 @@ pwl_sources/
 .vscode/
 .idea/
 .DS_Store
+
+paper/
