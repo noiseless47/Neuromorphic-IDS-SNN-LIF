@@ -48,25 +48,34 @@ def build_data_pipeline(data_path="d:/Neuromorphic-IDS-SNN-LIF/raw datasets",
     full_df['packet_rate'] = (full_df['spkts'] + full_df['dpkts']) / dur_safe
     
     print("Selecting core categorical and numerical targets based on network behaviour...")
-    # Remove obvious identifiers that don't map to raw SNN capabilities generically
-    drop_cols = ['srcip', 'dstip', 'attack_cat', 'stime', 'ltime'] # Keep 'label' for classification
+    # Remove binary 'label' and time identifiers. Keep 'attack_cat' for FULL Multi-class categorization.
+    drop_cols = ['srcip', 'dstip', 'stime', 'ltime', 'label'] 
     clean_df = full_df.drop(columns=drop_cols)
     
     print("\n=== [STEP 2] DATA PREPROCESSING (Cleaning + Norm + PCA) ===")
     print("Cleaning dataset...")
-    # Drop rows missing crucial info or substitute it
     clean_df.replace('-', np.nan, inplace=True)
-    clean_df.fillna(0, inplace=True) # Or mode/median based on design choice
     
-    # Downsample if executing on average machine for rapid iteration, though PCA on 2.5m is feasible.
+    # Ensure 'attack_cat' captures 'Normal' traffic properly instead of NaNs
+    clean_df['attack_cat'] = clean_df['attack_cat'].replace(['', '-', ' ', np.nan, 0, '0'], 'Normal')
+    clean_df['attack_cat'] = clean_df['attack_cat'].astype(str).str.strip().str.title()
+    
+    # Fill remaining numerical/categorical NaNs with 0
+    clean_df.fillna(0, inplace=True) 
+    
+    # Downsample maintaining multi-class ratio perfectly
     if sample_size and len(clean_df) > sample_size:
         print(f"Stratifying down sample size to {sample_size} for PCA...")
-        clean_df = clean_df.groupby('label', group_keys=False).apply(
-            lambda x: x.sample(min(len(x), int(sample_size * len(x) / len(clean_df))))
+        clean_df = clean_df.groupby('attack_cat', group_keys=False).apply(
+            lambda x: x.sample(min(len(x), max(1, int(sample_size * len(x) / len(clean_df)))))
         ).sample(frac=1).reset_index(drop=True)
     
-    y = clean_df['label'].astype(int).values
-    X_raw = clean_df.drop(columns=['label'])
+    le_cat = LabelEncoder()
+    y = le_cat.fit_transform(clean_df['attack_cat'])
+    class_mapping = dict(zip(le_cat.classes_, le_cat.transform(le_cat.classes_)))
+    print(f"Multi-class mapped to integers: {class_mapping}")
+    
+    X_raw = clean_df.drop(columns=['attack_cat'])
     
     # Label Encode strings (protocol type, state, service)
     print("Encoding categorical protocol/states to numerical representation...")
@@ -98,7 +107,7 @@ def build_data_pipeline(data_path="d:/Neuromorphic-IDS-SNN-LIF/raw datasets",
     analog_scaler = MinMaxScaler()
     final_df[pca_columns] = analog_scaler.fit_transform(final_df)
     
-    final_df['label'] = y
+    final_df['attack_cat'] = y
     
     output_dir = "d:/Neuromorphic-IDS-SNN-LIF/processed_data"
     os.makedirs(output_dir, exist_ok=True)

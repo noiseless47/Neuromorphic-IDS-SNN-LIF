@@ -83,8 +83,8 @@ def generate_hardware_test_vectors(data_path="d:/Neuromorphic-IDS-SNN-LIF/proces
     pca_cols = [c for c in df.columns if 'pca' in c.lower()]
     
     for i, row in df.iterrows():
-        sample_label = int(row['label'])
-        sample_dir = os.path.join(output_dir, f"sample_{i}_label_{sample_label}")
+        sample_attack_cat = int(row['attack_cat'])
+        sample_dir = os.path.join(output_dir, f"sample_{i}_cat_{sample_attack_cat}")
         os.makedirs(sample_dir, exist_ok=True)
         
         neuron_idx = 0

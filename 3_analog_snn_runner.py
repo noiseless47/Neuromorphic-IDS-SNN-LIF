@@ -56,9 +56,12 @@ def batch_process_ltspice_outputs(results_dir="d:/Neuromorphic-IDS-SNN-LIF/spice
         print(f"Extracting spikes from {os.path.basename(raw)}...")
         features = extract_spikes_from_raw(raw)
         
-        # Here we would normally extract the Label from the filename or a manifest map
-        label = 1 if "attack" in raw.lower() else 0
-        all_features.append(features + [label])
+        # Simple extraction of the multi-class category ID from the filename: e.g. sample_5_cat_3.raw
+        import re
+        match = re.search(r'cat_(\d+)', raw)
+        category_id = int(match.group(1)) if match else 0
+        
+        all_features.append(features + [category_id])
         
     print(f"Successfully extracted {len(all_features)} hardware-simulated feature vectors.")
     return np.array(all_features)

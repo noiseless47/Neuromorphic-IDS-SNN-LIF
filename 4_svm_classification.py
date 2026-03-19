@@ -56,6 +56,6 @@ if __name__ == "__main__":
     # Generating dummy array representing 10 hardware samples with 4 output neurons + 1 label
     # REPLACE this dummy call linearly with the return value from `3_analog_snn_runner.py`
     dummy_hardware_output = np.random.randint(0, 10, size=(100, 5)) 
-    dummy_hardware_output[:, -1] = np.random.randint(0, 2, size=100) # Labels 0 or 1
+    dummy_hardware_output[:, -1] = np.random.randint(0, 10, size=100) # Representing 10 distinct attack/normal classes
     
     train_and_evaluate_hardware_svm(dummy_hardware_output)
