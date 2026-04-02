@@ -114,8 +114,19 @@ def build_data_pipeline(data_path="d:/Neuromorphic-IDS-SNN-LIF/raw datasets",
     out_file = os.path.join(output_dir, "pca_analog_features.csv")
     final_df.to_csv(out_file, index=False)
     
+    # Generate HIL Subset (Hardware-In-the-Loop)
+    hil_size = 500
+    if len(final_df) > hil_size:
+        print(f"\nGenerating Hardware-In-the-Loop (HIL) subset of size {hil_size} for LTSpice tests...")
+        hil_df = final_df.groupby('attack_cat', group_keys=False).apply(
+            lambda x: x.sample(min(len(x), max(1, int(hil_size * len(x) / len(final_df)))))
+        ).sample(frac=1, random_state=42).reset_index(drop=True)
+        hil_out_file = os.path.join(output_dir, "hil_subset_features.csv")
+        hil_df.to_csv(hil_out_file, index=False)
+        print(f"HIL Subset saved to: {hil_out_file}")
+    
     print(f"\nPipeline completely mapped successfully in {time.time() - start_time:.2f} seconds!")
-    print(f"Final Data saved to: {out_file}")
+    print(f"Final Full Data saved to: {out_file}")
     print(final_df.head())
 
 if __name__ == "__main__":

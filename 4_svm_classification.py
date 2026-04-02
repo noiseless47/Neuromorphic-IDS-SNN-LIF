@@ -53,9 +53,19 @@ def train_and_evaluate_hardware_svm(features_array):
     print("> and dynamic spiking power < 1 mW, establishing phenomenal energy efficiency!")
 
 if __name__ == "__main__":
-    # Generating dummy array representing 10 hardware samples with 4 output neurons + 1 label
-    # REPLACE this dummy call linearly with the return value from `3_analog_snn_runner.py`
-    dummy_hardware_output = np.random.randint(0, 10, size=(100, 5)) 
-    dummy_hardware_output[:, -1] = np.random.randint(0, 10, size=100) # Representing 10 distinct attack/normal classes
+    import os
     
-    train_and_evaluate_hardware_svm(dummy_hardware_output)
+    hw_features_path = "d:/Neuromorphic-IDS-SNN-LIF/spice_outputs/hardware_features_output.csv"
+    
+    if os.path.exists(hw_features_path):
+        print(f"Loading real hardware-simulated features from {hw_features_path}...")
+        df = pd.read_csv(hw_features_path)
+        hw_output = df.values
+    else:
+        print(f"[WARNING] {hw_features_path} not found. Running orchestrator first is recommended.")
+        print("Generating dummy hardware data for pipeline validation...")
+        # Generating dummy array representing 10 hardware samples with 4 output neurons + 1 label
+        hw_output = np.random.randint(0, 10, size=(100, 5)) 
+        hw_output[:, -1] = np.random.randint(0, 10, size=100)
+    
+    train_and_evaluate_hardware_svm(hw_output)
