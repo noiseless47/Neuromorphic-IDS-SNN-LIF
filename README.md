@@ -43,7 +43,7 @@ Neuromorphic-IDS-SNN-LIF/
 │
 ├── 1_data_pipeline.py          # Data ingestion, Cleaning, MinMax scaling, and PCA Mapping
 ├── 2_spike_encoder.py          # Translates PCA targets to Rate/TTFS/Population SPICE PWLs
-├── 3_analog_snn_runner.py      # Bridging pipeline reading hardware .raw signals -> arrays
+├── 3_hardware_orchestrator.py  # Runs/extracts LTSpice hardware outputs into feature vectors
 ├── 4_svm_classification.py     # SVM Model evaluating Physical Array data & displaying metrics
 │
 ├── requirements.txt            # Python dependencies (pandas, sklearn, PyLTSpice)
@@ -72,7 +72,7 @@ Convert the abstract math directly into analog voltage pulse files:
 ```bash
 python 2_spike_encoder.py
 ```
-*This dumps standard `t v` syntax maps inside `pwl_sources/`.*
+*This dumps standard `t v` syntax maps inside `pwl_sources/` as `sample_<id>_cat_<attack_cat>/V_neuron_*` files.*
 
 ### 4. Running the Physical SNN
 - Drag the respective `PWL` sources into your Cadence / LTSpice schematic inputs.
@@ -82,7 +82,7 @@ python 2_spike_encoder.py
 ### 5. Final Hardware Verification
 Run the evaluation bridge to extract those real physical timings and classify:
 ```bash
-python 3_analog_snn_runner.py  # If debugging the log ingestion explicitly
+python 3_hardware_orchestrator.py # Runs hardware orchestration + feature extraction to `spice_outputs/hardware_features_output.csv`
 python 4_svm_classification.py # Trains and reports Accuracy / F1
 ```
 
