@@ -37,8 +37,6 @@ venv.bak/
 
 # Datasets and large generic files (DO NOT COMMIT RAW DATA)
 raw datasets/
-processed_data/
-pwl_sources/
 *.zip
 *.tar.gz
 *.csv
