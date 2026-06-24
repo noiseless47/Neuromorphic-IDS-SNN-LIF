@@ -82,6 +82,15 @@ def generate_hardware_test_vectors(data_path="d:/Neuromorphic-IDS-SNN-LIF/proces
     
     pca_cols = [c for c in df.columns if 'pca' in c.lower()]
     
+    # Normalize the PCA columns to [0, 1] range
+    for col in pca_cols:
+        col_min = df[col].min()
+        col_max = df[col].max()
+        if col_max != col_min:
+            df[col] = (df[col] - col_min) / (col_max - col_min)
+        else:
+            df[col] = 0.5 # fallback flat value
+    
     for i, row in df.iterrows():
         sample_attack_cat = int(row['attack_cat'])
         sample_dir = os.path.join(output_dir, f"sample_{i}_cat_{sample_attack_cat}")

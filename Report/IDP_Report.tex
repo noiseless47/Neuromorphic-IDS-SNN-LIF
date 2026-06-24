@@ -1,0 +1,133 @@
+\documentclass[12pt,oneside,a4paper]{book}
+
+\input{./AuxFiles/Packages}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Document settings
+\title{Neuromorphic Intrusion Detection System using Spiking Neural Networks and Leaky Integrate-and-Fire Neurons}
+\subCode{IDP}
+\Department[ECE]{Electronics and Communication Engineering}
+\academicYear{2025-26}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Report Type
+\IDPProject
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Student Details
+\stuNameA{Asish Kumar Yeleti}
+\stuUSNA{1RV23IS026}
+\stuNameB{Disha A}
+\stuUSNB{1RV24IS402}
+\stuNameC{Joel Saha}
+\stuUSNC{1RV23EC061}
+\stuNameD{Apoorva Yeshwanthraya Bilagundi}
+\stuUSND{1RV24EC400}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Guide and evaluation details
+\guideNameA{Project Guide}
+\guideDesignationA{Assistant Professor}
+\guideDeptA[ECE]{Electronics and Communication Engineering}
+\guideOrgA{RV College of Engineering}
+
+\panelMemberNameA{Panel Member 1}
+\panelMemberDesigA{Faculty Member}
+\panelMemberDeptA[ECE]{Electronics and Communication Engineering}
+\panelMemberNameB{Panel Member 2}
+\panelMemberDesigB{Faculty Member}
+\panelMemberDeptB[ISE]{Information Science and Engineering}
+
+\projectCoOrdNameA{Project Coordinator}
+\projectCoOrdDesigA{Faculty Coordinator}
+\projectCoOrdDeptA[ECE]{Electronics and Communication Engineering}
+
+\HOD{Head of the Department}
+\Principal{Principal}
+\DeanAcademics{Dean Academics}
+\VicePrincipal{Vice Principal}
+
+\QRurl{}
+
+%%%%%%%%%%%%%%%%%% Glossaries & Acronyms %%%%%%%%%%%%%%%%%%
+\newglossary[sym]{symbolList}{sym1}{sym2}{List of Symbols}
+\makeglossaries
+\loadglsentries{./AuxFiles/Glossaries}
+\renewcommand{\glspostdescription}{}
+
+%%%%%%%%%%%%%%%% Bibliography %%%%%%%%%%%%%%%%%%%%%
+\usepackage[backend=bibtex,style=ieee]{biblatex}
+\addbibresource{./AuxFiles/ProjectBib.bib}
+
+%%%%%%%%%%%%%%%% WaterMark %%%%%%%%%%%%%%%%%%%%%
+\usepackage{background}
+\backgroundsetup{scale=1, angle=0, firstpage = false, opacity=0.5, contents={
+\begin{tikzpicture}[remember picture, overlay]
+\node at ([yshift=0pt, xshift=0pt]current page.center){\includegraphics[width=0.6\textwidth]{Figures/RVlogoVecW}};
+\end{tikzpicture}
+}}
+
+\begin{document}
+\NoBgThispage
+\maketitle
+\newpage
+
+\ifDrf
+\else
+\begin{spacing}{1.5}
+\input{./CoverPages/Certificate}
+
+\newpage
+\input{./CoverPages/Declaration}
+
+\newpage
+\input{./CoverPages/Ack}
+
+\newpage
+\pagenumbering{roman}
+
+\chapter*{Abstract}
+\input{./CoverPages/Abstract}
+
+\end{spacing}
+\newpage
+\pagestyle{fplain}
+\begin{spacing}{1.5}
+\tableofcontents
+\end{spacing}
+\newpage
+\begin{spacing}{1.5}
+\cleardoublepage
+\addcontentsline{toc}{chapter}{\listfigurename}
+\listoffigures
+\end{spacing}
+\newpage
+\begin{spacing}{1.5}
+\cleardoublepage
+\addcontentsline{toc}{chapter}{\listtablename}
+\listoftables
+\end{spacing}
+
+\glsaddall
+\printglossary[type=\acronymtype, title= Abbreviations, toctitle=Abbreviations]
+\printglossary[type=symbolList, title= List of Symbols, toctitle=List of Symbols]
+\fi
+
+\mainmatter
+\pagestyle{mplain}
+\glsresetall
+\begin{spacing}{1.5}
+\input{./Chapter1/chapter1-Intro}
+\input{./Chapter2/chapter2-Funda}
+\input{./Chapter3/chapter3-design}
+\input{./Chapter4/chapter4-implement}
+
+\backmatter
+\ifDrf
+\else
+\clearpage
+\addcontentsline{toc}{chapter}{Bibliography}
+\printbibliography
+\fi
+\end{spacing}
+\end{document}

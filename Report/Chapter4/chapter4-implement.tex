@@ -1,0 +1,169 @@
+\chapter{Implementation}
+
+The implementation converts the system design into executable modules and generated artifacts. The system implements a reproducible workflow for dataset processing, spike encoding, PWL file generation and classifier integration. The implementation also defines how the generated PWL files are used by the Cadence/LTSpice LIF circuit design to evaluate neuromorphic performance.
+
+\section{System Modules Organization}
+
+The project implementation is organized into distinct processing modules. The logical separation of these modules ensures a clean pipeline from raw data to hardware simulation, as shown in Table \ref{tab:repo}.
+
+\begin{table}[H]
+\centering
+\caption{System module organization}
+\label{tab:repo}
+\begin{tabular}{|p{0.35\textwidth}|p{0.5\textwidth}|}
+\hline
+\textbf{Module / Component} & \textbf{Purpose} \\
+\hline
+\textbf{Raw Data Storage} & Stores UNSW-NB15 network traffic records. \\
+\hline
+\textbf{Processed Features Data} & Stores PCA-reduced analog feature matrices. \\
+\hline
+\textbf{PWL Source Generator} & Stores generated PWL voltage source files for hardware simulation. \\
+\hline
+\textbf{Hardware Outputs} & Stores Cadence waveform exports and extracted feature outputs. \\
+\hline
+\textbf{Data Pipeline Module} & Implements preprocessing, normalization and PCA mapping. \\
+\hline
+\textbf{Spike Encoder Module} & Implements spike encoding and PWL file generation. \\
+\hline
+\textbf{Hardware Interface Module} & Provides routines for hardware waveform parsing and spike counting. \\
+\hline
+\textbf{Classification Module} & Provides classifier integration for extracted spike features. \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Software Environment}
+
+The software implementation is developed in the Python 3 programming environment. Industry-standard libraries are used for efficiency: Pandas is used for parsing dataset records and manipulating dataframes; NumPy is utilized for numerical arrays and mathematical operations; Scikit-learn provides the implementation for Min-Max scaling, label encoding, PCA dimensionality reduction, and the final classification models. Additionally, specialized libraries are integrated to assist with future parsing of circuit simulator raw output logs.
+
+\section{Data Pipeline Module}
+
+The Data Pipeline module implements dataset collection, preprocessing and feature extraction. The module defines the standard column names for the UNSW-NB15 dataset. All dataset chunks matching the standard format are loaded from the raw dataset repository and concatenated.
+
+The implementation creates a derived feature called \texttt{packet\_rate}. It is computed using source packets, destination packets and flow duration. A small value is used when duration is zero to avoid division by zero. This derived feature helps represent traffic intensity.
+
+The following columns are removed:
+\begin{itemize}
+\item Source IP address.
+\item Destination IP address.
+\item Start time.
+\item Last time.
+\item Binary label.
+\end{itemize}
+
+The attack category column is retained and cleaned so that normal traffic is represented consistently. Remaining missing values are filled, and categorical fields are label encoded. The numerical matrix is then normalized using \texttt{MinMaxScaler}.
+
+\section{PCA Mapping Implementation}
+
+After normalization, PCA is applied using:
+\begin{verbatim}
+PCA(n_components=physical_neuron_count)
+\end{verbatim}
+The default physical neuron count used in the script is eight. The PCA output columns are named:
+\begin{verbatim}
+pca_neuron_1, pca_neuron_2, ..., pca_neuron_8
+\end{verbatim}
+
+Since PCA outputs can be negative or unbounded, the script applies a second Min-Max normalization. This step is essential because the spike encoder expects values in the range 0 to 1. The final file is written as:
+\begin{verbatim}
+processed_data/pca_analog_features.csv
+\end{verbatim}
+
+The implementation also generates a smaller hardware-in-the-loop subset, containing select representative samples across all attack categories. This subset is intended for circuit simulation, where processing every dataset sample sequentially would be computationally prohibitive due to the transient simulation times of analog circuits.
+
+\section{Spike Encoder Module}
+
+The Spike Encoder module implements three core encoding functions:
+\begin{enumerate}
+\item \texttt{rate\_encoding(value)}
+\item \texttt{ttfs\_encoding(value)}
+\item \texttt{population\_coding(value)}
+\end{enumerate}
+
+The rate encoder computes the number of active spike ticks from the normalized input value. The TTFS encoder generates one spike at a time index determined by the input value. The population encoder creates Gaussian receptive field activations and rate encodes each activation.
+
+The constants used by the spike encoder are:
+\begin{verbatim}
+TIME_STEPS = 10
+VOLTAGE_HIGH = 1.0
+VOLTAGE_LOW = 0.0
+TIMESTEP_DURATION = 0.001
+\end{verbatim}
+
+These constants define the waveform length and voltage levels. The output is intentionally simple so that the generated files can be interpreted by circuit simulators without additional conversion.
+
+\section{PWL Generation Implementation}
+
+The function \texttt{translate\_to\_ltspice\_pwl()} converts a binary spike train into a list of time-voltage pairs. For each timestep, it writes a start value and an end value. A rise/fall duration equal to 1\% of the timestep is used to avoid numerical issues from ideal discontinuities.
+
+An example generated file may look like:
+\begin{verbatim}
+0.000000 1.0
+0.000990 1.0
+0.001000 1.0
+0.001990 1.0
+0.002000 0.0
+0.002990 0.0
+\end{verbatim}
+
+Each sample is stored in a separate folder. For population coding, each PCA feature produces four files. With eight PCA features, this gives 32 PWL files per sample. The naming convention is:
+\begin{verbatim}
+V_neuron_<feature_index>_m_<population_index>.txt
+\end{verbatim}
+
+\section{Hardware Interface Implementation}
+
+The Hardware Interface module provides the critical bridge between the analog circuit simulation outputs and the Python-based machine learning analysis. It includes functions to parse simulation waveform exports and identify the output traces corresponding to the physical neurons. It employs threshold-crossing logic with built-in hysteresis to accurately count output spikes, ensuring that a single wide hardware pulse is not erroneously counted multiple times.
+
+Furthermore, this module contains routines for extracting average power measurements from the simulation logs, assuming the SPICE/Cadence netlist incorporates suitable measurement directives. This is particularly significant because validating the low-power consumption of the neuromorphic architecture is a key objective of this interdisciplinary study.
+
+\section{Classifier Integration Implementation}
+
+The Classification Integration module accepts the extracted hardware spike feature arrays. The final column of the array is treated as the ground-truth label, and the preceding columns are the network features encoded as spike counts. The implementation partitions the data into training and testing sets, trains a Support Vector Machine (SVM) with an RBF kernel, and reports standard evaluation metrics including:
+\begin{itemize}
+\item Accuracy
+\item Weighted F1-score
+\item Confusion matrix
+\item False positive rate
+\item Detailed Classification report
+\end{itemize}
+
+This module serves as the final evaluation endpoint for the workflow. Once the physical Cadence LIF output waveforms are exported and converted back into numerical feature vectors by the orchestrator, they are evaluated using this classifier to benchmark the end-to-end system.
+
+\section{Cadence/LTSpice Usage Workflow}
+
+The intended circuit-level usage workflow is:
+\begin{enumerate}
+\item Select one generated sample folder from \texttt{pwl\_sources/}.
+\item Attach selected PWL files to input voltage sources in the LIF circuit.
+\item Run transient simulation.
+\item Probe input voltage, membrane voltage and output spike voltage.
+\item Export the output waveforms for spike feature extraction.
+\item Use the extracted features in the classifier script.
+\end{enumerate}
+
+For a single LIF test, one PWL file can be used first. For a wider input test, multiple PWL files can be applied to multiple LIF inputs or time-multiplexed through one validated LIF cell.
+
+\section{Implementation Traceability}
+
+Traceability between the software and hardware domains is strictly maintained through systematic file generation and naming conventions. The processed matrices preserve the attack category labels. The generated PWL sample directories also explicitly encode the sample index and class label in their naming scheme. This makes it possible to uniquely trace a physical circuit simulation output back to the original network flow record. For example, a directory designated as \texttt{sample\_0\_cat\_6/} unambiguously indicates that the generated PWL voltage sources represent dataset sample index 0, which corresponds to the encoded attack category 6.
+
+\section{Quality Checks}
+
+The following checks are used to verify implementation correctness:
+\begin{enumerate}
+\item Confirm that processed PCA features contain eight neuron columns and one label column.
+\item Confirm that all PCA feature values lie between 0 and 1.
+\item Confirm that each generated PWL file contains valid time-voltage pairs.
+\item Confirm that PWL voltage values are only 0 V or 1 V.
+\item Confirm that each population-coded sample contains the expected number of files.
+\item Confirm that spike extraction counts rising edges rather than repeated high samples.
+\end{enumerate}
+
+\section{Current Implementation Status}
+
+The implemented project work establishes the complete front-end required for neuromorphic IDS experimentation. The dataset can be processed into analog PCA features, features can be encoded into spikes, and spike trains can be exported as PWL voltage files. The hardware interface and classifier modules define the integration necessary for circuit output parsing and final IDS evaluation.
+
+The present report documents the robust implementation foundation required for hardware validation. Detailed experimental results, physical circuit power measurements and final conclusions are intentionally outside the scope of this four-chapter report.
+
