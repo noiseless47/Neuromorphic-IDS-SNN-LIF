@@ -3,8 +3,8 @@ import pandas as pd
 import os
 
 TIME_STEPS = 10
-VOLTAGE_HIGH = 1.0 # 1V for a spike
-VOLTAGE_LOW = 0.0  # 0V base
+VOLTAGE_HIGH = 2.4 # 1.2V amplitude + 1.2V offset for Cadence NMOS gate
+VOLTAGE_LOW = 1.2  # 1.2V offset for Cadence NMOS gate
 TIMESTEP_DURATION = 0.001 # 1 ms per simulation tick
 
 def rate_encoding(value, T=TIME_STEPS):
