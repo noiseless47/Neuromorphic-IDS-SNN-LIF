@@ -206,7 +206,7 @@ This layered strategy reduces debugging difficulty. If the final classifier perf
 
 \section{Risk and Design Mitigation}
 
-Several risks are considered in the design. PCA may discard useful information if too few components are selected. To mitigate this, the number of components is aligned with hardware constraints while preserving as much variance as possible. PWL files may create sharp transitions that affect simulator convergence, so the encoder includes a small rise/fall duration. LIF circuits may be sensitive to threshold and leakage settings, so the design requires observable membrane and output nodes for calibration.
+Several risks are considered in the design. PCA may discard useful information if too few components are selected. To mitigate this, the number of components is aligned with hardware constraints while preserving as much variance as possible. PWL files may create sharp transitions that affect simulator convergence, so the encoder includes a small rise/fall duration. Crucially, analog LIF circuits are highly sensitive to resistance and capacitance parameters; if the RC time constant ($\tau$) is too large relative to the PWL input pulse duration, the membrane voltage will fail to reach the firing threshold. To mitigate this, the design requires observable membrane and output nodes for precise calibration of the threshold and leakage settings against the software-defined timestep.
 
 \section{Design Summary}
 
