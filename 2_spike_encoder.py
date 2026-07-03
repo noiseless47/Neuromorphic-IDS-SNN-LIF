@@ -3,8 +3,8 @@ import pandas as pd
 import os
 
 TIME_STEPS = 10
-VOLTAGE_HIGH = 2.4 # 1.2V amplitude + 1.2V offset for Cadence NMOS gate
-VOLTAGE_LOW = 1.2  # 1.2V offset for Cadence NMOS gate
+VOLTAGE_HIGH = 1.2 # 1.2V amplitude for Cadence NMOS gate (VDD=1.2V)
+VOLTAGE_LOW = 0.0  # 0.0V baseline
 TIMESTEP_DURATION = 0.001 # 1 ms per simulation tick
 
 def rate_encoding(value, T=TIME_STEPS):
@@ -42,26 +42,38 @@ def population_coding(value, M=4, T=TIME_STEPS):
 def translate_to_ltspice_pwl(spike_train, t_step=TIMESTEP_DURATION, v_high=VOLTAGE_HIGH, v_low=VOLTAGE_LOW):
     """
     Converts binary arrays [0, 1, 0] to LTSpice Piece-Wise Linear text definitions.
-    E.g. 0.000 0.0\n0.001 1.0\n0.002 1.0\n0.003 0.0
-    To create nice square pulses, we introduce a very small rise/fall time.
+    For each '1', generates a discrete ON/OFF pulse (e.g. 0.5ms ON, 0.5ms OFF)
+    so the circuit correctly integrates repeated charge injections.
     """
     edges = []
     rise_fall = t_step * 0.01 # 1% of timestep for rising edge to avoid SPICE matrix singularity
+    pulse_width = (t_step / 2.0) - rise_fall # 50% duty cycle ON time
     
     current_time = 0.0
     for val in spike_train:
-        v_target = v_high if val == 1 else v_low
-        
-        # Start of timestep
-        edges.append(f"{current_time:.6f} {v_target:.1f}")
-        
-        # End of timestep (flat line)
-        current_time += t_step - rise_fall
-        edges.append(f"{current_time:.6f} {v_target:.1f}")
-        
-        # Tiny Gap to next tick
-        current_time += rise_fall
-        
+        if val == 1:
+            # Begin OFF -> ON
+            edges.append(f"{current_time:.6f} {v_low:.1f}")
+            current_time += rise_fall
+            edges.append(f"{current_time:.6f} {v_high:.1f}")
+            
+            # Hold ON
+            current_time += pulse_width
+            edges.append(f"{current_time:.6f} {v_high:.1f}")
+            
+            # Begin ON -> OFF
+            current_time += rise_fall
+            edges.append(f"{current_time:.6f} {v_low:.1f}")
+            
+            # Hold OFF for the remainder of the timestep
+            current_time += pulse_width
+            edges.append(f"{current_time:.6f} {v_low:.1f}")
+        else:
+            # No spike, stay LOW for the entire timestep
+            edges.append(f"{current_time:.6f} {v_low:.1f}")
+            current_time += t_step
+            edges.append(f"{current_time:.6f} {v_low:.1f}")
+            
     return "\n".join(edges)
 
 def generate_hardware_test_vectors(data_path="d:/Neuromorphic-IDS-SNN-LIF/processed_data/pca_analog_features.csv",
@@ -123,4 +135,4 @@ def generate_hardware_test_vectors(data_path="d:/Neuromorphic-IDS-SNN-LIF/proces
     print("These `.txt` files can be directly attached to LTSpice voltage components `PWL(file=...)`.")
 
 if __name__ == "__main__":
-    generate_hardware_test_vectors(encoding_method="population", num_samples_to_generate=5)
+    generate_hardware_test_vectors(encoding_method="rate", num_samples_to_generate=1650)

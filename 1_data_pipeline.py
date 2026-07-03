@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 from sklearn.decomposition import PCA
+import joblib
 import time
 
 # Defining the standard 49 columns belonging to the UNSW-NB15 dataset files
@@ -63,12 +64,12 @@ def build_data_pipeline(data_path="d:/Neuromorphic-IDS-SNN-LIF/raw datasets",
     # Fill remaining numerical/categorical NaNs with 0
     clean_df.fillna(0, inplace=True) 
     
-    # Downsample maintaining multi-class ratio perfectly
-    if sample_size and len(clean_df) > sample_size:
-        print(f"Stratifying down sample size to {sample_size} for PCA...")
-        clean_df = clean_df.groupby('attack_cat', group_keys=False).apply(
-            lambda x: x.sample(min(len(x), max(1, int(sample_size * len(x) / len(clean_df)))))
-        ).sample(frac=1).reset_index(drop=True)
+    # Downsample but force a PERFECTLY BALANCED dataset for the AI
+    samples_per_class = 150
+    print(f"Forcing perfectly balanced dataset with {samples_per_class} samples per attack category...")
+    clean_df = clean_df.groupby('attack_cat', group_keys=False).apply(
+        lambda x: x.sample(min(len(x), samples_per_class))
+    ).sample(frac=1).reset_index(drop=True)
     
     le_cat = LabelEncoder()
     y = le_cat.fit_transform(clean_df['attack_cat'])
@@ -79,10 +80,12 @@ def build_data_pipeline(data_path="d:/Neuromorphic-IDS-SNN-LIF/raw datasets",
     
     # Label Encode strings (protocol type, state, service)
     print("Encoding categorical protocol/states to numerical representation...")
+    label_encoders = {}
     for col in X_raw.select_dtypes(include=['object']).columns:
         le = LabelEncoder()
         # Convert everything to string first in case of mixed types
         X_raw[col] = le.fit_transform(X_raw[col].astype(str))
+        label_encoders[col] = le
     
     # Normalization (Min-Max)
     print("Applying Min-Max Normalization...")
@@ -113,6 +116,18 @@ def build_data_pipeline(data_path="d:/Neuromorphic-IDS-SNN-LIF/raw datasets",
     os.makedirs(output_dir, exist_ok=True)
     out_file = os.path.join(output_dir, "pca_analog_features.csv")
     final_df.to_csv(out_file, index=False)
+    
+    # Save models for live inference
+    models_dir = "d:/Neuromorphic-IDS-SNN-LIF/models"
+    os.makedirs(models_dir, exist_ok=True)
+    joblib.dump(le_cat, os.path.join(models_dir, "label_encoder_cat.joblib"))
+    joblib.dump(label_encoders, os.path.join(models_dir, "categorical_encoders.joblib"))
+    joblib.dump(scaler, os.path.join(models_dir, "minmax_scaler_raw.joblib"))
+    joblib.dump(pca, os.path.join(models_dir, "pca_model.joblib"))
+    joblib.dump(analog_scaler, os.path.join(models_dir, "minmax_scaler_analog.joblib"))
+    
+    # Save the column names so inference knows what to expect
+    joblib.dump(list(clean_df.drop(columns=['attack_cat']).columns), os.path.join(models_dir, "raw_columns.joblib"))
     
     # Generate HIL Subset (Hardware-In-the-Loop)
     hil_size = 500
