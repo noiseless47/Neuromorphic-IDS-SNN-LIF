@@ -46,31 +46,23 @@ def translate_to_ltspice_pwl(spike_train, t_step=TIMESTEP_DURATION, v_high=VOLTA
     so the circuit correctly integrates repeated charge injections.
     """
     edges = []
-    rise_fall = t_step * 0.01 # 1% of timestep for rising edge to avoid SPICE matrix singularity
-    pulse_width = (t_step / 2.0) - rise_fall # 50% duty cycle ON time
-    
     current_time = 0.0
+    edges.append(f"{current_time:.6f} {v_low:.1f}")
+    
+    rise_fall = 0.000010
+    pulse_width = (t_step / 2.0) - rise_fall
+    
     for val in spike_train:
         if val == 1:
-            # Begin OFF -> ON
-            edges.append(f"{current_time:.6f} {v_low:.1f}")
             current_time += rise_fall
             edges.append(f"{current_time:.6f} {v_high:.1f}")
-            
-            # Hold ON
             current_time += pulse_width
             edges.append(f"{current_time:.6f} {v_high:.1f}")
-            
-            # Begin ON -> OFF
             current_time += rise_fall
             edges.append(f"{current_time:.6f} {v_low:.1f}")
-            
-            # Hold OFF for the remainder of the timestep
             current_time += pulse_width
             edges.append(f"{current_time:.6f} {v_low:.1f}")
         else:
-            # No spike, stay LOW for the entire timestep
-            edges.append(f"{current_time:.6f} {v_low:.1f}")
             current_time += t_step
             edges.append(f"{current_time:.6f} {v_low:.1f}")
             
