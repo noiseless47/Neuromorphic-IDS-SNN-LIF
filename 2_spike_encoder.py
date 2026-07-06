@@ -49,18 +49,14 @@ def translate_to_ltspice_pwl(spike_train, t_step=TIMESTEP_DURATION, v_high=VOLTA
     current_time = 0.0
     edges.append(f"{current_time:.6f} {v_low:.1f}")
     
-    rise_fall = 0.000010
-    pulse_width = (t_step / 2.0) - rise_fall
+    rise_time = 0.000010
+    fall_time = t_step - rise_time
     
     for val in spike_train:
         if val == 1:
-            current_time += rise_fall
+            current_time += rise_time
             edges.append(f"{current_time:.6f} {v_high:.1f}")
-            current_time += pulse_width
-            edges.append(f"{current_time:.6f} {v_high:.1f}")
-            current_time += rise_fall
-            edges.append(f"{current_time:.6f} {v_low:.1f}")
-            current_time += pulse_width
+            current_time += fall_time
             edges.append(f"{current_time:.6f} {v_low:.1f}")
         else:
             current_time += t_step
