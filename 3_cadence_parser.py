@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 
-def extract_spikes_from_csv(csv_path, target_columns=None, threshold=0.5):
+def extract_spikes_from_csv(csv_path, target_columns=None, threshold=0.0005):
     """
     Reads a Cadence Virtuoso CSV file and counts spikes for given target columns.
     
