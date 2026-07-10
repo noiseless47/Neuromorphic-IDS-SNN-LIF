@@ -1,19 +1,33 @@
 import pandas as pd
 import numpy as np
+import logging
+from datetime import datetime
 from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report, f1_score, confusion_matrix
 import joblib
+
+log_filename = "svm_results.log"
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    handlers=[
+        logging.FileHandler(log_filename, mode='a'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 def train_and_evaluate_hardware_svm(features_array):
     """
     Step 7 & 8: Classification & Evaluation
     Takes the extracted hardware spike rates/timings and classifies them.
     """
-    print("\n=== [STEP 7] CLASSIFICATION (SVM) ===")
+    logger.info("\n=== [STEP 7] CLASSIFICATION (SVM) ===")
     
     if features_array is None or len(features_array) == 0:
-        print("Error: No feature array provided. Simulate hardware first.")
+        logger.error("Error: No feature array provided. Simulate hardware first.")
         return
 
     # Assume last column is label
@@ -22,11 +36,11 @@ def train_and_evaluate_hardware_svm(features_array):
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
-    print(f"Training SVM (RBF) on {len(X_train)} mapped hardware samples...")
+    logger.info(f"Training SVM (RBF) on {len(X_train)} mapped hardware samples...")
     model = SVC(kernel='rbf', probability=True, class_weight='balanced')
     model.fit(X_train, y_train)
     
-    print("\n=== [STEP 8] PERFORMANCE EVALUATION ===")
+    logger.info("\n=== [STEP 8] PERFORMANCE EVALUATION ===")
     y_pred = model.predict(X_test)
     
     # Save the SVM model
@@ -34,7 +48,7 @@ def train_and_evaluate_hardware_svm(features_array):
     models_dir = "d:/Neuromorphic-IDS-SNN-LIF/models"
     os.makedirs(models_dir, exist_ok=True)
     joblib.dump(model, os.path.join(models_dir, "svm_model.joblib"))
-    print("Saved trained SVM model to models/svm_model.joblib")
+    logger.info("Saved trained SVM model to models/svm_model.joblib")
     
     # Multi-class Evaluation
     acc = accuracy_score(y_test, y_pred)
@@ -67,21 +81,20 @@ def train_and_evaluate_hardware_svm(features_array):
     else:
         binary_fpr = 0.0
         
-    print("-" * 50)
-    print(f"Multi-Class Accuracy Score      : {acc * 100:.2f} %")
-    print(f"Multi-Class F1-Score (Weighted) : {f1 * 100:.2f} %")
-    print("-" * 50)
-    print(f"Binary Accuracy (Attack Det.)  : {binary_acc * 100:.2f} %")
-    print(f"Binary F1-Score (Attack Det.)  : {binary_f1 * 100:.2f} %")
-    print(f"Binary False Positive Rate     : {binary_fpr * 100:.2f} %")
-    print("-" * 50)
-    print("Classification Report:")
-    print(classification_report(y_test, y_pred))
+    logger.info("-" * 50)
+    logger.info(f"Multi-Class Accuracy Score      : {acc * 100:.2f} %")
+    logger.info(f"Multi-Class F1-Score (Weighted) : {f1 * 100:.2f} %")
+    logger.info("-" * 50)
+    logger.info(f"Binary Accuracy (Attack Det.)  : {binary_acc * 100:.2f} %")
+    logger.info(f"Binary F1-Score (Attack Det.)  : {binary_f1 * 100:.2f} %")
+    logger.info(f"Binary False Positive Rate     : {binary_fpr * 100:.2f} %")
+    logger.info("-" * 50)
+    logger.info("Classification Report:\n" + classification_report(y_test, y_pred))
     
-    print("\n[Analog Neuromorphic Power Analysis]")
-    print("> Unlike traditional CPU ML inference (~100-500 mW), the integrated ")
-    print("> LTSpice/Cadence LIF topologies exhibit static leakage in the Nano-Watt range ")
-    print("> and dynamic spiking power < 1 mW, establishing phenomenal energy efficiency!")
+    logger.info("\n[Analog Neuromorphic Power Analysis]")
+    logger.info("> Unlike traditional CPU ML inference (~100-500 mW), the integrated ")
+    logger.info("> LTSpice/Cadence LIF topologies exhibit static leakage in the Nano-Watt range ")
+    logger.info("> and dynamic spiking power < 1 mW, establishing phenomenal energy efficiency!")
 
 if __name__ == "__main__":
     import os
@@ -89,12 +102,12 @@ if __name__ == "__main__":
     hw_features_path = "features_array.npy"
     
     if os.path.exists(hw_features_path):
-        print(f"Loading parsed Cadence features from {hw_features_path}...")
+        logger.info(f"Loading parsed Cadence features from {hw_features_path}...")
         features_array = np.load(hw_features_path)
         train_and_evaluate_hardware_svm(features_array)
     else:
-        print(f"File {hw_features_path} not found. Please run 3_cadence_parser.py first.")
-        print("Generating dummy hardware data for pipeline validation...")
+        logger.warning(f"File {hw_features_path} not found. Please run 3_cadence_parser.py first.")
+        logger.info("Generating dummy hardware data for pipeline validation...")
         # Generating dummy array representing 10 hardware samples with 4 output neurons + 1 label
         hw_output = np.random.randint(0, 10, size=(100, 5)) 
         hw_output[:, -1] = np.random.randint(0, 10, size=100)

@@ -3,7 +3,22 @@ import joblib
 import pandas as pd
 import numpy as np
 import warnings
+import logging
+from datetime import datetime
+
 warnings.filterwarnings('ignore') # Ignore sklearn warnings for cleaner output
+
+log_filename = "live_inference.log"
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    handlers=[
+        logging.FileHandler(log_filename, mode='a'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # --- 1. SPICE & LIF SIMULATION MATH ---
 TIME_STEPS = 10
@@ -73,9 +88,9 @@ def count_spikes_hysteresis(v_trace, high_thresh=0.8, low_thresh=0.2):
 
 # --- 2. LIVE INFERENCE ENGINE ---
 def run_live_inference():
-    print("\n" + "="*70)
-    print("  NEUROMORPHIC IDS - LIVE HARDWARE INFERENCE ENGINE")
-    print("="*70)
+    logger.info("\n" + "="*70)
+    logger.info("  NEUROMORPHIC IDS - LIVE HARDWARE INFERENCE ENGINE")
+    logger.info("="*70)
     
     models_dir = "models"
     try:
@@ -87,13 +102,13 @@ def run_live_inference():
         svm_model = joblib.load(os.path.join(models_dir, "svm_model.joblib"))
         raw_columns = joblib.load(os.path.join(models_dir, "raw_columns.joblib"))
     except Exception as e:
-        print("Error loading models. Did you run step 1 and 4?")
-        print(e)
+        logger.error("Error loading models. Did you run step 1 and 4?")
+        logger.error(e)
         return
 
     # Grab a random raw packet from the original dataset
     dataset_path = "d:/Neuromorphic-IDS-SNN-LIF/raw datasets/UNSW-NB15_1.csv"
-    print(f"\n[*] Intercepting a random live packet from {dataset_path}...")
+    logger.info(f"\n[*] Intercepting a random live packet from {dataset_path}...")
     
     # We must read using the exact 49 columns that exist in the raw CSV
     COLUMNS = [
@@ -114,7 +129,7 @@ def run_live_inference():
     df_attacks = df_raw[~df_raw['attack_cat'].isin(['Normal', ' ', '', np.nan])]
     
     if len(df_attacks) == 0:
-        print("Couldn't find an attack in this random chunk. Run again!")
+        logger.warning("Couldn't find an attack in this random chunk. Run again!")
         return
         
     # Pick a random attack row
@@ -140,10 +155,10 @@ def run_live_inference():
     packet.replace('-', np.nan, inplace=True)
     packet.fillna(0, inplace=True)
     
-    print("[*] Raw Packet Intercepted & Cleaned.")
+    logger.info("[*] Raw Packet Intercepted & Cleaned.")
     
     # Preprocessing
-    print("[*] Passing packet through PCA dimensionality reduction...")
+    logger.info("[*] Passing packet through PCA dimensionality reduction...")
     for col, le in label_encoders.items():
         # Handle unseen labels gracefully
         packet[col] = packet[col].astype(str).map(lambda s: s if s in le.classes_ else le.classes_[0])
@@ -155,7 +170,7 @@ def run_live_inference():
     
     pca_features = analog_packet[0]
     
-    print("[*] Simulating Analog Neuromorphic Circuit (Population Coding & LIF Integration)...")
+    logger.info("[*] Simulating Analog Neuromorphic Circuit (Population Coding & LIF Integration)...")
     
     t_end = 0.01
     dt = 1e-5
@@ -176,10 +191,10 @@ def run_live_inference():
         spikes = count_spikes_hysteresis(v_out)
         spike_counts.append(spikes)
         
-    print(f"[*] Physical Hardware Output (Spike Counts): {spike_counts}")
+    logger.info(f"[*] Physical Hardware Output (Spike Counts): {spike_counts}")
     
     # SVM Prediction
-    print("[*] Feeding hardware spikes into SVM Classifier...")
+    logger.info("[*] Feeding hardware spikes into SVM Classifier...")
     features_array = np.array(spike_counts).reshape(1, -1)
     
     pred_idx = svm_model.predict(features_array)[0]
@@ -188,17 +203,17 @@ def run_live_inference():
     class_mapping = {v: k for k, v in zip(le_cat.classes_, le_cat.transform(le_cat.classes_))}
     pred_label = class_mapping.get(pred_idx, "Unknown")
     
-    print("\n" + "="*70)
-    print("                      FINAL RESULT")
-    print("="*70)
-    print(f" TRUE PACKET TYPE : {true_label}")
+    logger.info("\n" + "="*70)
+    logger.info("                      FINAL RESULT")
+    logger.info("="*70)
+    logger.info(f" TRUE PACKET TYPE : {true_label}")
     
     if pred_label == 'Normal':
-        print(f" AI PREDICTION    : [ SAFE ] {pred_label} Traffic Detected")
+        logger.info(f" AI PREDICTION    : [ SAFE ] {pred_label} Traffic Detected")
     else:
-        print(f" AI PREDICTION    : [ ALERT ] {pred_label} Attack Detected!")
-    print("="*70)
-    print("\n")
+        logger.warning(f" AI PREDICTION    : [ ALERT ] {pred_label} Attack Detected!")
+    logger.info("="*70)
+    logger.info("\n")
 
 if __name__ == "__main__":
     run_live_inference()
