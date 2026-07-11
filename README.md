@@ -37,14 +37,15 @@ This project bridges **Data Science** and **Analog VLSI Design** via an 8-step p
 Neuromorphic-IDS-SNN-LIF/
 │
 ├── raw datasets/               # Placeholder for UNSW-NB15 dataset chunks (Ignored in Git)
-├── processed_data/             # Output directory for the PCA-scaled feature sets
-├── pwl_sources/                # Auto-generated Piece-Wise Linear LTSpice inputs
-├── spice_outputs/              # Destination for LTSpice .raw evaluation logs
+├── processed_data/             # Generated PCA-scaled feature sets (ignored)
+├── pwl_sources/                # Generated Piece-Wise Linear LTSpice inputs (ignored)
+├── dummy_cadence_outputs/      # Generated Cadence CSV outputs (ignored)
+├── models/                     # Trained model artifacts (ignored)
 │
 ├── 1_data_pipeline.py          # Data ingestion, Cleaning, MinMax scaling, and PCA Mapping
 ├── 2_spike_encoder.py          # Translates PCA targets to Rate/TTFS/Population SPICE PWLs
-├── 3_hardware_orchestrator.py  # Runs/extracts LTSpice hardware outputs into feature vectors
-├── 4_svm_classification.py     # SVM Model evaluating Physical Array data & displaying metrics
+├── 3_cadence_parser.py         # Parses Cadence CSV outputs into spike-count features
+├── 4_svm_classification.py     # SVM model trained directly from Cadence parser CSV output
 │
 ├── requirements.txt            # Python dependencies (pandas, sklearn, PyLTSpice)
 └── README.md                   # Project Overview
@@ -79,11 +80,11 @@ python 2_spike_encoder.py
 - Run a `.tran` transient simulation.
 - Export or target the output node vectors to `.raw` logs.
 
-### 5. Final Hardware Verification
-Run the evaluation bridge to extract those real physical timings and classify:
+### 5. Parse Cadence Outputs and Train
+Process the Cadence CSV outputs directly, then train the classifier on the parsed spikes:
 ```bash
-python 3_hardware_orchestrator.py # Runs hardware orchestration + feature extraction to `spice_outputs/hardware_features_output.csv`
-python 4_svm_classification.py # Trains and reports Accuracy / F1
+python 3_cadence_parser.py # Reads dummy_cadence_outputs/ and writes features_array.npy
+python 4_svm_classification.py --input dummy_cadence_outputs # Trains and reports Accuracy / F1
 ```
 
 ---

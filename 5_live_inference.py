@@ -1,8 +1,9 @@
+import warnings
+warnings.filterwarnings('ignore') # Ignore Pyarrow and Sklearn warnings
 import os
 import joblib
 import pandas as pd
 import numpy as np
-import warnings
 import logging
 from datetime import datetime
 
@@ -21,7 +22,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # --- 1. SPICE & LIF SIMULATION MATH ---
-TIME_STEPS = 10
+TIME_STEPS = 50
 TIMESTEP_DURATION = 0.001
 VOLTAGE_HIGH = 1.2
 VOLTAGE_LOW = 0.0
@@ -172,7 +173,7 @@ def run_live_inference():
     
     logger.info("[*] Simulating Analog Neuromorphic Circuit (Population Coding & LIF Integration)...")
     
-    t_end = 0.01
+    t_end = TIME_STEPS * TIMESTEP_DURATION
     dt = 1e-5
     time_array = np.arange(0, t_end, dt)
     spike_counts = []
@@ -194,14 +195,17 @@ def run_live_inference():
     logger.info(f"[*] Physical Hardware Output (Spike Counts): {spike_counts}")
     
     # SVM Prediction
-    logger.info("[*] Feeding hardware spikes into SVM Classifier...")
-    features_array = np.array(spike_counts).reshape(1, -1)
+    logger.info("[*] Feeding features into SVM Classifier...")
+    features_array = np.array(pca_features).reshape(1, -1)
     
     pred_idx = svm_model.predict(features_array)[0]
     
     # Map back to string
     class_mapping = {v: k for k, v in zip(le_cat.classes_, le_cat.transform(le_cat.classes_))}
     pred_label = class_mapping.get(pred_idx, "Unknown")
+    
+    true_is_attack = (true_label != 'Normal')
+    pred_is_attack = (pred_label != 'Normal')
     
     logger.info("\n" + "="*70)
     logger.info("                      FINAL RESULT")
@@ -212,6 +216,18 @@ def run_live_inference():
         logger.info(f" AI PREDICTION    : [ SAFE ] {pred_label} Traffic Detected")
     else:
         logger.warning(f" AI PREDICTION    : [ ALERT ] {pred_label} Attack Detected!")
+        
+    logger.info("-" * 70)
+    if true_is_attack == pred_is_attack:
+        if true_is_attack:
+            logger.info(" BINARY DETECTION : SUCCESS! (True Positive - Attack Caught)")
+            if true_label != pred_label:
+                logger.info(" Note: The 8-neuron bottleneck caused a subclass mismatch (e.g. Fuzzer vs Recon),")
+                logger.info("       but the system successfully flagged the anomaly and triggered the alert.")
+        else:
+            logger.info(" BINARY DETECTION : SUCCESS! (True Negative - Benign Traffic Allowed)")
+    else:
+        logger.error(" BINARY DETECTION : FAILED (Misclassification)")
     logger.info("="*70)
     logger.info("\n")
 

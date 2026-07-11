@@ -113,8 +113,8 @@ if __name__ == '__main__':
         print(f"Processing all CSVs in {out_dir}...")
         process_batch_cadence_csvs(out_dir)
     else:
-        # Fallback to test lif6.csv
-        test_csv = 'lif6.csv'
+        # Fallback to test output.csv
+        test_csv = 'cadence_outputs/output.csv'
         if os.path.exists(test_csv):
             print(f"Testing parser on {test_csv}...")
             results = extract_spikes_from_csv(test_csv, target_columns=['/vout Y', '/I8/net014 Y'])

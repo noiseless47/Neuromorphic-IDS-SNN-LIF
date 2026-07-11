@@ -1,3 +1,7 @@
+import warnings
+warnings.filterwarnings('ignore') # Ignore Pyarrow and Sklearn warnings
+import argparse
+import os
 import pandas as pd
 import numpy as np
 import logging
@@ -18,6 +22,87 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+
+def extract_spikes_from_csv(csv_path, threshold=0.5):
+    try:
+        df = pd.read_csv(csv_path)
+    except Exception as exc:
+        logger.error(f"Failed to read {csv_path}: {exc}")
+        return {}
+
+    target_columns = [col for col in df.columns if (' Y' in col) and ('out' in col.lower() or 'vcom' in col.lower() or 'net025' in col.lower())]
+    if not target_columns:
+        logger.warning(f"No spike-like output columns found in {csv_path}")
+        return {}
+
+    results = {}
+    for col in target_columns:
+        voltages = df[col].values
+        spikes = 0
+        is_high = False
+        reset_threshold = threshold * 0.8
+
+        for voltage in voltages:
+            if voltage > threshold and not is_high:
+                spikes += 1
+                is_high = True
+            elif voltage < reset_threshold:
+                is_high = False
+
+        results[col] = spikes
+
+    return results
+
+
+def load_features_from_cadence_folder(csv_directory, threshold=0.5):
+    csv_files = sorted([name for name in os.listdir(csv_directory) if name.endswith('.csv')])
+    if not csv_files:
+        logger.error(f"No CSV files found in {csv_directory}")
+        return None
+
+    features_list = []
+    for filename in csv_files:
+        full_path = os.path.join(csv_directory, filename)
+        spike_dict = extract_spikes_from_csv(full_path, threshold=threshold)
+        if not spike_dict:
+            continue
+
+        feature_row = [spike_dict[column] for column in sorted(spike_dict.keys())]
+
+        label = 0
+        if '_cat_' in filename:
+            try:
+                label = int(filename.split('_cat_')[-1].split('.')[0])
+            except ValueError:
+                label = 0
+
+        feature_row.append(label)
+        features_list.append(feature_row)
+
+    if not features_list:
+        logger.error(f"No usable feature rows were extracted from {csv_directory}")
+        return None
+
+    return np.array(features_list)
+
+
+def load_features_from_source(input_path):
+    if not os.path.exists(input_path):
+        logger.error(f"Input path does not exist: {input_path}")
+        return None
+
+    if os.path.isdir(input_path):
+        return load_features_from_cadence_folder(input_path)
+
+    if input_path.endswith('.npy'):
+        return np.load(input_path)
+
+    if input_path.endswith('.csv'):
+        return pd.read_csv(input_path).values
+
+    logger.error(f"Unsupported input source: {input_path}")
+    return None
 
 def train_and_evaluate_hardware_svm(features_array):
     """
@@ -44,8 +129,7 @@ def train_and_evaluate_hardware_svm(features_array):
     y_pred = model.predict(X_test)
     
     # Save the SVM model
-    import os
-    models_dir = "d:/Neuromorphic-IDS-SNN-LIF/models"
+    models_dir = "models"
     os.makedirs(models_dir, exist_ok=True)
     joblib.dump(model, os.path.join(models_dir, "svm_model.joblib"))
     logger.info("Saved trained SVM model to models/svm_model.joblib")
@@ -55,26 +139,23 @@ def train_and_evaluate_hardware_svm(features_array):
     f1 = f1_score(y_test, y_pred, average='weighted')
     cm = confusion_matrix(y_test, y_pred)
     
-    # Binary Evaluation (Normal vs Attack)
-    # Assuming class 7.0 is 'Normal' based on previous outputs
-    y_test_binary = (y_test == 7.0).astype(int)  # 1 if Normal, 0 if Attack
-    y_pred_binary = (y_pred == 7.0).astype(int)  # 1 if Normal, 0 if Attack
+    if y_test.dtype.kind in {'U', 'S', 'O'}:
+        y_test_values = np.array([str(value).strip().lower() for value in y_test])
+        y_pred_values = np.array([str(value).strip().lower() for value in y_pred])
+        normal_mask_test = y_test_values == 'normal'
+        normal_mask_pred = y_pred_values == 'normal'
+    else:
+        normal_mask_test = y_test == 0
+        normal_mask_pred = y_pred == 0
+
+    y_test_binary = (~normal_mask_test).astype(int)
+    y_pred_binary = (~normal_mask_pred).astype(int)
     
     binary_acc = accuracy_score(y_test_binary, y_pred_binary)
     binary_f1 = f1_score(y_test_binary, y_pred_binary)
     binary_cm = confusion_matrix(y_test_binary, y_pred_binary)
     
-    # False Positive Rate = FP / (FP + TN)
-    # In our binary setup: 1 is Normal, 0 is Attack.
-    # So a False Positive is predicting 0 (Attack) when true is 1 (Normal)
-    # Actually, standard FPR is predicting positive (Attack) when true is negative (Normal).
-    # So if Positive = Attack (0), Negative = Normal (1):
-    # tn, fp, fn, tp = binary_cm.ravel() assumes 0 is negative and 1 is positive.
-    # Let's map Attack=1, Normal=0 for standard metric calculation
-    y_test_attack = (y_test != 7.0).astype(int)
-    y_pred_attack = (y_pred != 7.0).astype(int)
-    
-    cm_attack = confusion_matrix(y_test_attack, y_pred_attack)
+    cm_attack = confusion_matrix(y_test_binary, y_pred_binary)
     if cm_attack.shape == (2, 2):
         tn, fp, fn, tp = cm_attack.ravel()
         binary_fpr = fp / (fp + tn) if (fp + tn) > 0 else 0.0
@@ -97,18 +178,15 @@ def train_and_evaluate_hardware_svm(features_array):
     logger.info("> and dynamic spiking power < 1 mW, establishing phenomenal energy efficiency!")
 
 if __name__ == "__main__":
-    import os
-    
-    hw_features_path = "features_array.npy"
-    
-    if os.path.exists(hw_features_path):
-        logger.info(f"Loading parsed Cadence features from {hw_features_path}...")
-        features_array = np.load(hw_features_path)
+    parser = argparse.ArgumentParser(description="Train the SVM directly from Cadence parser output CSVs.")
+    parser.add_argument(
+        "--input",
+        default="dummy_cadence_outputs",
+        help="Folder of Cadence CSV outputs, a consolidated CSV, or a .npy feature array"
+    )
+    args = parser.parse_args()
+
+    features_array = load_features_from_source(args.input)
+    if features_array is not None:
+        logger.info(f"Loaded features from {args.input} with shape {features_array.shape}.")
         train_and_evaluate_hardware_svm(features_array)
-    else:
-        logger.warning(f"File {hw_features_path} not found. Please run 3_cadence_parser.py first.")
-        logger.info("Generating dummy hardware data for pipeline validation...")
-        # Generating dummy array representing 10 hardware samples with 4 output neurons + 1 label
-        hw_output = np.random.randint(0, 10, size=(100, 5)) 
-        hw_output[:, -1] = np.random.randint(0, 10, size=100)
-        train_and_evaluate_hardware_svm(hw_output)

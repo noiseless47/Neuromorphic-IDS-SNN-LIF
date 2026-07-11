@@ -41,6 +41,13 @@ raw datasets/
 *.tar.gz
 *.csv
 
+# Generated pipeline outputs
+processed_data/
+pwl_sources/
+dummy_cadence_outputs/
+models/
+features_array.npy
+
 # SPICE / LTSpice outputs and temporary files
 *.raw
 *.log
@@ -55,10 +62,3 @@ raw datasets/
 .vscode/
 .idea/
 .DS_Store
-
-# Paper
-paper/
-
-old-el-paper/
-
-Report/
